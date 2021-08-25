@@ -3,7 +3,6 @@ import operator
 from collections import Counter
 from typing import Iterable, Literal, Tuple, Union
 
-import numpy as np
 import pandas as pd
 
 
@@ -38,6 +37,16 @@ def get_index_pairs(df):
     pairs = list(itertools.combinations(df.index, 2))
     return [pair for pair in pairs if pair[0] != pair[1]]
 
+# we use variant B from Stanchev et al. (Soft Penalization) for
+# computing concordance/discordance/ties
+comparison_variant_b = [
+    (operator.lt, operator.lt, "c"),
+    (operator.lt, operator.eq, "t"),
+    (operator.lt, operator.gt, "d"),
+    (operator.gt, operator.lt, "d"),
+    (operator.gt, operator.eq, "t"),
+    (operator.gt, operator.gt, "c"),
+]
 
 comparison_variant_c = [
     (operator.lt, operator.lt, "c"),
@@ -60,14 +69,6 @@ comparison_variant_d = [
     (operator.gt, operator.gt, "c"),
 ]
 
-comparison_variant_b = [
-    (operator.lt, operator.lt, "c"),
-    (operator.lt, operator.eq, "t"),
-    (operator.lt, operator.gt, "d"),
-    (operator.gt, operator.lt, "d"),
-    (operator.gt, operator.eq, "t"),
-    (operator.gt, operator.gt, "c"),
-]
 
 
 def compute_rank_pair_type(
@@ -91,14 +92,12 @@ def kendalls_tau_darr(
     threshold=25,
 ):
     """Computes the Kendall's Tau formulation for da-RR, as presented
-    by Ma et al. (2019), "Results of the WMT19 metrics shared task:
-    Segment-level and strong MT systems pose big challenges."
+    Stanchev et al., "Towards a Better Evaluation of Metrics for Machine Translation." 
 
-     It is given by:
-
-                |Concordant| - |Discordant|
+    It is given by:
+                |Concordant - Discordant|
          \tau = -------------------------------
-                |Concordant| + |Discordant|
+                |Concordant + Discordant + Ties|
 
 
      where:
@@ -107,17 +106,20 @@ def kendalls_tau_darr(
          ╠═══════╬═════════╬═════════╬═════════╬═════════╣
          ║       ║         ║ s1 < s2 ║ s1 = s2 ║ s1 > s2 ║
          ╠═══════╬═════════╬═════════╬═════════╬═════════╣
-         ║ human ║ s1 < s2 ║ Conc    ║ Disc    ║ Disc    ║
+         ║ human ║ s1 < s2 ║ Conc    ║ Tie     ║ Disc    ║
          ║       ╠═════════╬═════════╬═════════╬═════════╣
          ║       ║ s1 = s2 ║ -       ║ -       ║ -       ║
          ║       ╠═════════╬═════════╬═════════╬═════════╣
-         ║       ║ s1 > s2 ║ Disc    ║ Disc    ║ Conc    ║
+         ║       ║ s1 > s2 ║ Disc    ║ Tie     ║ Conc    ║
          ╚═══════╩═════════╩═════════╩═════════╩═════════╝
 
      args:
          human_rankings - 2d numpy array of human rankings
          metric_rankings - 2d numpy array of metric rankings, corresponding
                            to the human rankings
+        threshold - difference in human score that above which human scores are treated
+                    to be different. For example, with threshold of 25, and s1=50 and s2=60,
+                    at a difference of 10 < 25, the two scores are treated as equal.
     """
     counts = Counter()
     grouped = df.groupby(groupby)
