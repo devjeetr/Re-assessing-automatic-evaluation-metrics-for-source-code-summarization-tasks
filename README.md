@@ -27,7 +27,7 @@ can use Smoothing Method #5 from Chen & Cherry) and Rouge (Java implementation p
 
 ### Kendall's TAU
 
-The implementation for Kendall's TAU can be found in `scripts/kendalls_tau.py`. Please refer to [Stanchevet al.][1] for details and rationale.
+The implementation for Kendall's TAU can be found in `scripts/kendalls_tau.py`. Please refer to [Stanchev et al.][1] for details and rationale.
 
 [1]: https://aclanthology.org/2020.wmt-1.103/
 
